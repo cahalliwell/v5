@@ -6060,38 +6060,20 @@ function SettingsScreen({ navigation }) {
 
   const confirmDeleteAccount = useCallback(async () => {
     try {
-      const {
-        data: { session: activeSession },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-
-      const authHeader = activeSession?.access_token
-        ? { Authorization: `Bearer ${activeSession.access_token}` }
-        : undefined;
-
-      const { error: fnError } = await supabase.functions.invoke(
-        "delete-account",
-        authHeader ? { headers: authHeader } : undefined,
-      );
+      const { error: fnError } = await supabase.functions.invoke("delete-account");
       if (fnError) throw fnError;
 
       await supabase.auth.signOut();
-      navigation?.popToTop?.();
 
-      Alert.alert(
-        "Account Deleted",
-        "Your account and data have been permanently removed. You'll now return to the login & sign up screen.",
-      );
+      Alert.alert("Account Deleted", "Your account and data have been permanently removed.");
     } catch (err) {
       console.log("Delete error:", err?.message || err);
       Alert.alert(
         "Deletion Failed",
-        err?.message ||
-          "We couldn’t delete your account. Please try again or contact support.",
+        "We couldn’t delete your account. Please try again or contact support.",
       );
     }
-  }, [navigation]);
+  }, []);
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
