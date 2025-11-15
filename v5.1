@@ -6060,25 +6060,15 @@ function SettingsScreen({ navigation }) {
 
   const confirmDeleteAccount = useCallback(async () => {
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.access_token) {
-        throw sessionError || new Error("Please sign in again before deleting your account.");
-      }
-
-      const { error: fnError } = await supabase.functions.invoke("delete-account", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { error: fnError } = await supabase.functions.invoke("delete-account");
       if (fnError) throw fnError;
 
       await supabase.auth.signOut();
 
-      Alert.alert("Account Deleted", "Your account and data have been permanently removed.");
+      Alert.alert(
+        "Account Deleted",
+        "Your account and data have been permanently removed. You can now log in or sign up again.",
+      );
     } catch (err) {
       console.log("Delete error:", err?.message || err);
       Alert.alert(
