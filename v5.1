@@ -1253,6 +1253,35 @@ function HexagonLabel({ cx, cy, value, size = "small", fill = palette.white, str
   );
 }
 
+const getBarInstanceValue = (item) => {
+  if (!item) return 0;
+  if (typeof item.instances === "number") return item.instances;
+  if (typeof item.readings === "number") return item.readings;
+  if (typeof item.total_casts === "number") return item.total_casts;
+  if (typeof item.count === "number") return item.count;
+  if (typeof item.value === "number") return item.value;
+  return 0;
+};
+
+function BarValueHex({ chartItem, x, y, barWidth, size = "small" }) {
+  const displayValue = Math.round(getBarInstanceValue(chartItem));
+  if (displayValue <= 0) return null;
+
+  const verticalOffset = size === "medium" ? 24 : 18;
+  const cx = x + barWidth / 2;
+  const cy = Math.max(y - verticalOffset, verticalOffset);
+
+  return (
+    <HexagonLabel
+      cx={cx}
+      cy={cy}
+      value={displayValue}
+      size={size}
+      stroke={palette.ink}
+    />
+  );
+}
+
 function useInsightsChartDimensions(styleRef, minWidth = 200) {
   const { width: windowWidth } = useWindowDimensions();
   const baseWidth = Dimensions.get("window").width;
@@ -1337,18 +1366,15 @@ function WeeklyChart({ data, loading }) {
       yAxisSuffix=""
       barRadius={12}
       flatColor
-      renderCustomBarContent={({ index, value, x, y, width: barWidth }) => {
-        if (!chartData[index] || value <= 0) return null;
-        const cy = Math.max(y - 18, 18);
-        return (
-          <HexagonLabel
-            key={`${chartData[index]?.weekday || "day"}-${index}`}
-            cx={x + barWidth / 2}
-            cy={cy}
-            value={Math.round(chartData[index].readings)}
-          />
-        );
-      }}
+      renderCustomBarContent={({ index, x, y, width: barWidth }) => (
+        <BarValueHex
+          key={`${chartData[index]?.weekday || "day"}-${index}`}
+          chartItem={chartData[index]}
+          x={x}
+          y={y}
+          barWidth={barWidth}
+        />
+      )}
     />
   );
 }
@@ -1428,19 +1454,15 @@ function MonthlyChart({ data, loading }) {
       yAxisSuffix=""
       barRadius={12}
       flatColor
-      renderCustomBarContent={({ index, value, x, y, width: barWidth }) => {
-        if (!chartData[index] || value <= 0) return null;
-        const cy = Math.max(y - 18, 18);
-        return (
-          <HexagonLabel
-            key={`${chartData[index]?.month || "month"}-${index}`}
-            cx={x + barWidth / 2}
-            cy={cy}
-            value={Math.round(chartData[index].readings)}
-            size="small"
-          />
-        );
-      }}
+      renderCustomBarContent={({ index, x, y, width: barWidth }) => (
+        <BarValueHex
+          key={`${chartData[index]?.month || "month"}-${index}`}
+          chartItem={chartData[index]}
+          x={x}
+          y={y}
+          barWidth={barWidth}
+        />
+      )}
     />
   );
 }
@@ -1541,19 +1563,15 @@ function TopCastsChart({ data, loading }) {
       yAxisSuffix=""
       barRadius={12}
       flatColor
-      renderCustomBarContent={({ index, value, x, y, width: barWidth }) => {
-        if (!chartData[index] || value <= 0) return null;
-        const cy = Math.max(y - 18, 18);
-        return (
-          <HexagonLabel
-            key={`top-cast-${chartData[index]?.hexagram_primary ?? index}-${index}`}
-            cx={x + barWidth / 2}
-            cy={cy}
-            value={Math.round(chartData[index].total_casts)}
-            size="small"
-          />
-        );
-      }}
+      renderCustomBarContent={({ index, x, y, width: barWidth }) => (
+        <BarValueHex
+          key={`top-cast-${chartData[index]?.hexagram_primary ?? index}-${index}`}
+          chartItem={chartData[index]}
+          x={x}
+          y={y}
+          barWidth={barWidth}
+        />
+      )}
     />
   );
 }
@@ -6001,6 +6019,7 @@ const stylesPremium = StyleSheet.create({
 // ⚙️ Settings screen
 function SettingsScreen({ navigation }) {
   const [feedback, setFeedback] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleOpenPremium = useCallback(() => {
     navigation.navigate("Premium");
@@ -6057,6 +6076,46 @@ function SettingsScreen({ navigation }) {
       Alert.alert("Unable to send email", error?.message || "Please try again.");
     }
   }, [feedback]);
+
+  const confirmDeleteAccount = useCallback(async () => {
+    if (deletingAccount) return;
+    setDeletingAccount(true);
+    try {
+      const { error: fnError } = await supabase.functions.invoke("delete-account", {
+        method: "POST",
+      });
+      if (fnError) throw fnError;
+
+      await supabase.auth.signOut();
+      navigation?.popToTop?.();
+
+      Alert.alert(
+        "Account Deleted",
+        "Your account and data have been permanently removed. You'll now return to the login & sign up screen.",
+      );
+    } catch (err) {
+      console.log("Delete error:", err?.message || err);
+      Alert.alert(
+        "Deletion Failed",
+        err?.message ||
+          "We couldn’t delete your account. Please try again or contact support.",
+      );
+    } finally {
+      setDeletingAccount(false);
+    }
+  }, [deletingAccount, navigation]);
+
+  const handleDeleteAccount = useCallback(() => {
+    if (deletingAccount) return;
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all associated data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: confirmDeleteAccount },
+      ],
+    );
+  }, [confirmDeleteAccount, deletingAccount]);
 
   return (
     <GradientBackground>
@@ -6121,6 +6180,31 @@ function SettingsScreen({ navigation }) {
             >
               Send Feedback
             </GoldButton>
+          </SectionCard>
+
+          <SectionCard>
+            <Text style={stylesSettings.accountTitle}>Account</Text>
+            <Pressable
+              onPress={handleDeleteAccount}
+              style={[
+                stylesSettings.deleteButton,
+                deletingAccount && stylesSettings.deleteButtonDisabled,
+              ]}
+              disabled={deletingAccount}
+            >
+              {deletingAccount ? (
+                <View style={stylesSettings.deleteButtonContent}>
+                  <ActivityIndicator size="small" color="#B3261E" />
+                  <Text
+                    style={[stylesSettings.deleteButtonText, stylesSettings.deleteButtonPendingText]}
+                  >
+                    Deleting...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={stylesSettings.deleteButtonText}>Delete My Account</Text>
+              )}
+            </Pressable>
           </SectionCard>
         </ScrollView>
       </SafeAreaView>
@@ -6198,6 +6282,37 @@ const stylesSettings = StyleSheet.create({
     color: palette.ink,
     marginBottom: theme.space(1.5),
     textAlignVertical: "top",
+  },
+  accountTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+    color: palette.ink,
+    marginBottom: theme.space(1.25),
+  },
+  deleteButton: {
+    borderRadius: theme.radius,
+    paddingVertical: theme.space(1),
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FDECEA",
+    borderWidth: 1,
+    borderColor: "#F5B5B0",
+  },
+  deleteButtonText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+    color: "#B3261E",
+  },
+  deleteButtonDisabled: {
+    opacity: 0.65,
+  },
+  deleteButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteButtonPendingText: {
+    marginLeft: 8,
   },
 });
 
@@ -6298,7 +6413,7 @@ export default function App() {
     setLoadingProfile(true);
     try {
       const { data, error } = await supabase
-        .from("Profiles")
+        .from("profiles")
         .select("display_name,email,is_premium,subscription_tier")
         .eq("id", userId)
         .maybeSingle();
