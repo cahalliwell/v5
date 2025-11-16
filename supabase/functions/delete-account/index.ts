@@ -3,16 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
     // Client user context
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
     );
 
     const {
@@ -33,7 +28,7 @@ serve(async (req) => {
     await supabaseClient.from("insights_weekly").delete().eq("user_id", userId);
     await supabaseClient.from("insights_monthly").delete().eq("user_id", userId);
     await supabaseClient.from("insights_top5_casts").delete().eq("user_id", userId);
-    await supabaseClient.from("Profiles").delete().eq("id", userId);
+    await supabaseClient.from("profiles").delete().eq("id", userId);
 
     // Delete the Supabase Auth user
     const { error: delError } = await supabaseClient.auth.admin.deleteUser(userId);
