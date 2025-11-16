@@ -6058,6 +6058,52 @@ function SettingsScreen({ navigation }) {
     }
   }, [feedback]);
 
+  const confirmDeleteAccount = useCallback(async () => {
+    try {
+      const {
+        data: { session: activeSession },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      const authHeader = activeSession?.access_token
+        ? { Authorization: `Bearer ${activeSession.access_token}` }
+        : undefined;
+
+      const { error: fnError } = await supabase.functions.invoke(
+        "delete-account",
+        authHeader ? { headers: authHeader } : undefined,
+      );
+      if (fnError) throw fnError;
+
+      await supabase.auth.signOut();
+      navigation?.popToTop?.();
+
+      Alert.alert(
+        "Account Deleted",
+        "Your account and data have been permanently removed. You'll now return to the login & sign up screen.",
+      );
+    } catch (err) {
+      console.log("Delete error:", err?.message || err);
+      Alert.alert(
+        "Deletion Failed",
+        err?.message ||
+          "We couldn’t delete your account. Please try again or contact support.",
+      );
+    }
+  }, [navigation]);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all associated data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: confirmDeleteAccount },
+      ],
+    );
+  }, [confirmDeleteAccount]);
+
   return (
     <GradientBackground>
       <SafeAreaView style={{ flex: 1 }}>
@@ -6121,6 +6167,13 @@ function SettingsScreen({ navigation }) {
             >
               Send Feedback
             </GoldButton>
+          </SectionCard>
+
+          <SectionCard>
+            <Text style={stylesSettings.accountTitle}>Account</Text>
+            <Pressable onPress={handleDeleteAccount} style={stylesSettings.deleteButton}>
+              <Text style={stylesSettings.deleteButtonText}>Delete My Account</Text>
+            </Pressable>
           </SectionCard>
         </ScrollView>
       </SafeAreaView>
@@ -6198,6 +6251,26 @@ const stylesSettings = StyleSheet.create({
     color: palette.ink,
     marginBottom: theme.space(1.5),
     textAlignVertical: "top",
+  },
+  accountTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+    color: palette.ink,
+    marginBottom: theme.space(1.25),
+  },
+  deleteButton: {
+    borderRadius: theme.radius,
+    paddingVertical: theme.space(1),
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FDECEA",
+    borderWidth: 1,
+    borderColor: "#F5B5B0",
+  },
+  deleteButtonText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+    color: "#B3261E",
   },
 });
 
