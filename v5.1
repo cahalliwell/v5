@@ -6001,6 +6001,7 @@ const stylesPremium = StyleSheet.create({
 // ⚙️ Settings screen
 function SettingsScreen({ navigation }) {
   const [feedback, setFeedback] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleOpenPremium = useCallback(() => {
     navigation.navigate("Premium");
@@ -6353,7 +6354,7 @@ export default function App() {
     setLoadingProfile(true);
     try {
       const { data, error } = await supabase
-        .from("Profiles")
+        .from("profiles")
         .select("display_name,email,is_premium,subscription_tier")
         .eq("id", userId)
         .maybeSingle();
