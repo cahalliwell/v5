@@ -1253,6 +1253,35 @@ function HexagonLabel({ cx, cy, value, size = "small", fill = palette.white, str
   );
 }
 
+const getBarInstanceValue = (item) => {
+  if (!item) return 0;
+  if (typeof item.instances === "number") return item.instances;
+  if (typeof item.readings === "number") return item.readings;
+  if (typeof item.total_casts === "number") return item.total_casts;
+  if (typeof item.count === "number") return item.count;
+  if (typeof item.value === "number") return item.value;
+  return 0;
+};
+
+function BarValueHex({ chartItem, x, y, barWidth, size = "small" }) {
+  const displayValue = Math.round(getBarInstanceValue(chartItem));
+  if (displayValue <= 0) return null;
+
+  const verticalOffset = size === "medium" ? 24 : 18;
+  const cx = x + barWidth / 2;
+  const cy = Math.max(y - verticalOffset, verticalOffset);
+
+  return (
+    <HexagonLabel
+      cx={cx}
+      cy={cy}
+      value={displayValue}
+      size={size}
+      stroke={palette.ink}
+    />
+  );
+}
+
 function useInsightsChartDimensions(styleRef, minWidth = 200) {
   const { width: windowWidth } = useWindowDimensions();
   const baseWidth = Dimensions.get("window").width;
@@ -1337,18 +1366,15 @@ function WeeklyChart({ data, loading }) {
       yAxisSuffix=""
       barRadius={12}
       flatColor
-      renderCustomBarContent={({ index, value, x, y, width: barWidth }) => {
-        if (!chartData[index] || value <= 0) return null;
-        const cy = Math.max(y - 18, 18);
-        return (
-          <HexagonLabel
-            key={`${chartData[index]?.weekday || "day"}-${index}`}
-            cx={x + barWidth / 2}
-            cy={cy}
-            value={Math.round(chartData[index].readings)}
-          />
-        );
-      }}
+      renderCustomBarContent={({ index, x, y, width: barWidth }) => (
+        <BarValueHex
+          key={`${chartData[index]?.weekday || "day"}-${index}`}
+          chartItem={chartData[index]}
+          x={x}
+          y={y}
+          barWidth={barWidth}
+        />
+      )}
     />
   );
 }
@@ -1428,19 +1454,15 @@ function MonthlyChart({ data, loading }) {
       yAxisSuffix=""
       barRadius={12}
       flatColor
-      renderCustomBarContent={({ index, value, x, y, width: barWidth }) => {
-        if (!chartData[index] || value <= 0) return null;
-        const cy = Math.max(y - 18, 18);
-        return (
-          <HexagonLabel
-            key={`${chartData[index]?.month || "month"}-${index}`}
-            cx={x + barWidth / 2}
-            cy={cy}
-            value={Math.round(chartData[index].readings)}
-            size="small"
-          />
-        );
-      }}
+      renderCustomBarContent={({ index, x, y, width: barWidth }) => (
+        <BarValueHex
+          key={`${chartData[index]?.month || "month"}-${index}`}
+          chartItem={chartData[index]}
+          x={x}
+          y={y}
+          barWidth={barWidth}
+        />
+      )}
     />
   );
 }
@@ -1541,19 +1563,15 @@ function TopCastsChart({ data, loading }) {
       yAxisSuffix=""
       barRadius={12}
       flatColor
-      renderCustomBarContent={({ index, value, x, y, width: barWidth }) => {
-        if (!chartData[index] || value <= 0) return null;
-        const cy = Math.max(y - 18, 18);
-        return (
-          <HexagonLabel
-            key={`top-cast-${chartData[index]?.hexagram_primary ?? index}-${index}`}
-            cx={x + barWidth / 2}
-            cy={cy}
-            value={Math.round(chartData[index].total_casts)}
-            size="small"
-          />
-        );
-      }}
+      renderCustomBarContent={({ index, x, y, width: barWidth }) => (
+        <BarValueHex
+          key={`top-cast-${chartData[index]?.hexagram_primary ?? index}-${index}`}
+          chartItem={chartData[index]}
+          x={x}
+          y={y}
+          barWidth={barWidth}
+        />
+      )}
     />
   );
 }
