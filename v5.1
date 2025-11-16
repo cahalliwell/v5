@@ -6060,35 +6060,23 @@ function SettingsScreen({ navigation }) {
   }, [feedback]);
 
   const confirmDeleteAccount = useCallback(async () => {
-    if (deletingAccount) return;
-    setDeletingAccount(true);
     try {
-      const { error: fnError } = await supabase.functions.invoke("delete-account", {
-        method: "POST",
-      });
+      const { error: fnError } = await supabase.functions.invoke("delete-account");
       if (fnError) throw fnError;
 
       await supabase.auth.signOut();
-      navigation?.popToTop?.();
 
-      Alert.alert(
-        "Account Deleted",
-        "Your account and data have been permanently removed. You'll now return to the login & sign up screen.",
-      );
+      Alert.alert("Account Deleted", "Your account and data have been permanently removed.");
     } catch (err) {
       console.log("Delete error:", err?.message || err);
       Alert.alert(
         "Deletion Failed",
-        err?.message ||
-          "We couldn’t delete your account. Please try again or contact support.",
+        "We couldn’t delete your account. Please try again or contact support.",
       );
-    } finally {
-      setDeletingAccount(false);
     }
-  }, [deletingAccount, navigation]);
+  }, []);
 
   const handleDeleteAccount = useCallback(() => {
-    if (deletingAccount) return;
     Alert.alert(
       "Delete Account",
       "This will permanently delete your account and all associated data. This cannot be undone.",
@@ -6097,7 +6085,7 @@ function SettingsScreen({ navigation }) {
         { text: "Delete", style: "destructive", onPress: confirmDeleteAccount },
       ],
     );
-  }, [confirmDeleteAccount, deletingAccount]);
+  }, [confirmDeleteAccount]);
 
   return (
     <GradientBackground>
@@ -6166,26 +6154,8 @@ function SettingsScreen({ navigation }) {
 
           <SectionCard>
             <Text style={stylesSettings.accountTitle}>Account</Text>
-            <Pressable
-              onPress={handleDeleteAccount}
-              style={[
-                stylesSettings.deleteButton,
-                deletingAccount && stylesSettings.deleteButtonDisabled,
-              ]}
-              disabled={deletingAccount}
-            >
-              {deletingAccount ? (
-                <View style={stylesSettings.deleteButtonContent}>
-                  <ActivityIndicator size="small" color="#B3261E" />
-                  <Text
-                    style={[stylesSettings.deleteButtonText, stylesSettings.deleteButtonPendingText]}
-                  >
-                    Deleting...
-                  </Text>
-                </View>
-              ) : (
-                <Text style={stylesSettings.deleteButtonText}>Delete My Account</Text>
-              )}
+            <Pressable onPress={handleDeleteAccount} style={stylesSettings.deleteButton}>
+              <Text style={stylesSettings.deleteButtonText}>Delete My Account</Text>
             </Pressable>
           </SectionCard>
         </ScrollView>
@@ -6284,17 +6254,6 @@ const stylesSettings = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 15,
     color: "#B3261E",
-  },
-  deleteButtonDisabled: {
-    opacity: 0.65,
-  },
-  deleteButtonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deleteButtonPendingText: {
-    marginLeft: 8,
   },
 });
 
