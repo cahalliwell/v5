@@ -3,44 +3,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   try {
-    if (req.method !== "POST") {
-      return new Response("Method Not Allowed", { status: 405 });
-    }
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const tokenMatch = authHeader.match(/^Bearer\s+(.*)$/i);
-    if (!tokenMatch) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const accessToken = tokenMatch[1];
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-
-    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-      throw new Error("Supabase credentials are not configured.");
-    }
-
-    const supabaseAuthed = createClient(supabaseUrl, anonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    });
-
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    // Client user context
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    );
 
     const {
       data: { user },
       error: userError,
-    } = await supabaseAuthed.auth.getUser();
+    } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
       return new Response("Unauthorized", { status: 401 });
@@ -48,31 +21,21 @@ serve(async (req) => {
 
     const userId = user.id;
 
-    const tablesToWipe = [
-      { table: "JournalEntries", column: "user_id" },
-      { table: "insights_summary", column: "user_id" },
-      { table: "insights_counts", column: "user_id" },
-      { table: "insights_weekly", column: "user_id" },
-      { table: "insights_monthly", column: "user_id" },
-      { table: "insights_top5_casts", column: "user_id" },
-      { table: "profiles", column: "id" },
-    ];
+    // Delete all user-related data
+    await supabaseClient.from("JournalEntries").delete().eq("user_id", userId);
+    await supabaseClient.from("insights_summary").delete().eq("user_id", userId);
+    await supabaseClient.from("insights_counts").delete().eq("user_id", userId);
+    await supabaseClient.from("insights_weekly").delete().eq("user_id", userId);
+    await supabaseClient.from("insights_monthly").delete().eq("user_id", userId);
+    await supabaseClient.from("insights_top5_casts").delete().eq("user_id", userId);
+    await supabaseClient.from("profiles").delete().eq("id", userId);
 
-    for (const { table, column } of tablesToWipe) {
-      const { error } = await supabaseAdmin.from(table).delete().eq(column, userId);
-      if (error) {
-        throw new Error(`Failed to delete from ${table}: ${error.message}`);
-      }
-    }
-
-    const { error: delError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-    if (delError) {
-      throw new Error(`Failed to delete auth user: ${delError.message}`);
-    }
+    // Delete the Supabase Auth user
+    const { error: delError } = await supabaseClient.auth.admin.deleteUser(userId);
+    if (delError) throw delError;
 
     return new Response("Deleted", { status: 200 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error";
-    return new Response(message, { status: 500 });
+    return new Response(err.message, { status: 500 });
   }
 });
